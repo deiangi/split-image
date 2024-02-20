@@ -1,0 +1,46 @@
+Image Splitter
+Image Splitter is a Python tool for automatically detecting and splitting images into individual pictograms. It scans an input image for distinct pictograms and splits them into separate files. This tool is particularly useful for processing image maps containing multiple items, such as sprites or icons.
+
+Installation
+To use Image Splitter, you need Python installed on your system. The script also depends on a few Python libraries, such as PIL (Pillow) and NumPy.
+
+Follow these steps to set up the tool:
+
+Clone the Repository (optional, if the code is hosted on a repository):
+
+bash
+Copy code
+git clone https://github.com/deiangi/split-image.git
+cd split-image
+Install Required Libraries:
+Ensure you have pip installed and then run:
+
+bash
+Copy code
+pip install pillow numpy
+Usage
+To use Image Splitter, run the script from the command line with the required arguments.
+
+Basic Command
+bash
+Copy code
+python split-image.py <path_to_image>
+Optional Arguments
+-out, --output: Specify the output folder for the split images.
+-d, --detect: Automatic detection of the images. Only detection!
+-s, --size: Define the size of the images to be split. If not provided, the size will be automatically detected.
+Example
+bash
+Copy code
+python split-image.py ./sample.png 
+This command will automatically detect pictograms in trees.png and save the split images to outputFolder.
+
+Features
+Automatic Detection: Automatically detects and outlines individual pictograms within an image.
+Customizable Splitting: Allows specifying the size of the split images.
+Output Control: Saves split images in a specified directory and optionally zips them.
+Contributing
+Contributions to Image Splitter are welcome. Please ensure to test your changes thoroughly before making a pull request.
+
+License
+This project is licensed under the MIT License - see the LICENSE file for details.
