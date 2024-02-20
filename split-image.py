@@ -19,6 +19,7 @@
 # SOFTWARE.
 
 import argparse
+import math
 import os
 from PIL import Image, ImageDraw
 import numpy as np
@@ -183,38 +184,128 @@ def create_zip_from_splits(split_image_paths, output_folder):
             zipf.write(path, arcname=os.path.basename(path))
     return zip_filename
 
+
+def flood_fill_transparent(image_path):
+    # Open the image
+    img_before = Image.open(image_path)
+    img_after = img_before.copy()
+
+    # Define the top-left seed point (you can adjust this)
+    start_point = (0, 0)
+
+    # Define the transparent color (RGBA format: R, G, B, A)
+    transparent_color = (0, 0, 0, 0)  # Fully transparent
+
+    # Apply flood fill
+    img_draw = ImageDraw.floodfill(img_after, start_point, transparent_color, thresh=50, tolerance=20)
+
+    # Show the original and modified images (you can save the modified image if needed)
+    img_before.show()
+    img_after.show()
+
+
+def create_transparent_image(image_path, target_color=(0, 0, 0), tolerance=10):
+    # Open the image
+    img = Image.open(image_path)
+    img_rgba = img.convert("RGBA")
+
+    # Get pixel data
+    pixels = img_rgba.load()
+
+    # Create a new image with transparency
+    transparent_img = Image.new("RGBA", img.size, (255, 255, 255, 0))
+    transparent_pixels = transparent_img.load()
+
+    # Iterate through each pixel
+    for y in range(img.height):
+        for x in range(img.width):
+            r, g, b, a = pixels[x, y]
+            m = min(r,g,b)
+            newA=math.floor((255-m)*(2.6))
+            transparent_pixels[x, y] = (r, g, b, newA)
+
+            # if m <= tolerance:
+            # # if abs(r - target_color[0]) <= tolerance and \
+            # #    abs(g - target_color[1]) <= tolerance and \
+            # #    abs(b - target_color[2]) <= tolerance:
+            #     # Replace target color with transparency
+
+            #     newA=(255-m)//255
+            #     transparent_pixels[x, y] = (newA, g, b, 1)
+            # else:
+            #     transparent_pixels[x, y] = (r, g, b, a)
+
+    return transparent_img
+
+def process_images_with_transparency(image_paths, transparent_output_folder, tolerance=0):
+    saved_names = []  # Initialize an empty list to store saved image names
+    for image_path in image_paths:
+
+        # The following function should be defined somewhere in your script
+        # It will process the image and return an image with transparency applied
+        transparent_img = create_transparent_image(image_path, target_color=(0, 0, 0), tolerance=tolerance)
+
+        # Construct the output file name and path
+        img_name = os.path.basename( image_path)  # Get the base name of the image file
+        output_file_name = f"{os.path.splitext(img_name)[0]}_transparent.png"
+        output_path = os.path.join(transparent_output_folder, output_file_name)
+
+        # Save the transparent image to the specified output folder
+        transparent_img.save(output_path)
+        saved_names.append(output_path)  # Add the saved image path to the list
+        # print(f"Saved transparent image as {output_path}")
+
+    return saved_names  # Return the list of saved image paths
+
+
+
 def main():
     # Set up the argument parser
     parser = argparse.ArgumentParser(description="Split an image into multiple parts and zip the results.")
     parser.add_argument("filename", type=str, help="The file name of the image to split.")
     parser.add_argument("-out", "--output", type=str, help="Output folder for the split images and zip file. Default is the base file name.")
     parser.add_argument("-d", "--detect", action='store_true', help="Detect the images automatically. Only Detection!")
+    parser.add_argument("-t", "--transparent", type=int, default=None, help="Make the pictures transparent. Set the tolerance level.")
     parser.add_argument("-s", "--size", type=int, default=None, help="Define image size. If not provided will be automatically detected.")
-      
+
     # Parse the arguments
     args = parser.parse_args()
     print(f"Split image map into separate image(s) with automatic image size.")
     print(f"Copyright (c) by Deian Gi, 2024")
 
+
     # If output directory is not specified, use the base file name without extension
+    base_file_name = os.path.splitext(os.path.basename(args.filename))[0]
     if not args.output:
-        base_file_name = os.path.splitext(os.path.basename(args.filename))[0]
         args.output = os.path.join(os.getcwd(), base_file_name)
 
-    if args.detect:
-        squares, max_square_len = scan_and_draw_lines(args.filename, True)
-    else :
-        squares, max_square_len = scan_and_draw_lines(args.filename, False, args.size)
-        if len(squares) == 0:
-            print(f"No images detected. Abort.")
-            exit
+    # Create directories for normal and transparent images
+    normal_output_folder = f"{args.output}"
+    os.makedirs(normal_output_folder, exist_ok=True)
 
-        # Run the split image routine
-        split_paths = split_image(args.filename, squares, args.output)
-        # Create a zip file from the split images
-        zip_path = create_zip_from_splits(split_paths, args.output)
-        print(f"Split in {len(squares)} image(s) with size [{max_square_len}x{max_square_len}] saved to '{args.output}' and zipped in '{zip_path}'.")
+    # Detect squares and draw lines if required
+    squares, max_square_len = scan_and_draw_lines(args.filename, args.detect, args.size)    
+    if len(squares) == 0:
+        print(f"No images detected. Abort.")
+        exit()
+
+    # Split images and save the normal ones
+    normal_split_paths = split_image(args.filename, squares, normal_output_folder)
+    # Create a zip file from the split normal images
+    normal_zip_path = create_zip_from_splits(normal_split_paths, normal_output_folder)
+    print(f"Split into {len(squares)} image(s) with size [{max_square_len}x{max_square_len}] saved to '{normal_output_folder}' and zipped in '{normal_zip_path}'.")
+
+    # Process transparency if required
+    if args.transparent is not None:
+        transparent_output_folder = f"{args.output}_transparent"
+        os.makedirs(transparent_output_folder, exist_ok=True)
+        
+        # Make the split images transparent and save to a different folder
+        transparent_split_paths = process_images_with_transparency(normal_split_paths, transparent_output_folder, tolerance=args.transparent)
+        # Create a zip file from the split transparent images
+        transparent_zip_path = create_zip_from_splits(transparent_split_paths, transparent_output_folder)
+        print(f"Split into {len(squares)} transparent image(s) with size [{max_square_len}x{max_square_len}] saved to '{transparent_output_folder}' and zipped in '{transparent_zip_path}'.")
+
 
 if __name__ == "__main__":
     main()
-
